@@ -1,119 +1,132 @@
-/* Importera npm-paket sqlite3 med hjälp av require() och lagrar i variabeln sqlite */
-const sqlite = require('sqlite3').verbose();
-/* Skapar ny koppling till databas-fil som skapades tidigare. */
-const db = new sqlite.Database('./gik339.db');
-
-/* Importerar npm-paket express och lagrar i variabeln express */
 const express = require('express');
-/* Skapar server med hjälp av express */
+const multer = require('multer');
+const sqlite = require('sqlite3').verbose();
+const path = require('path');
+
+const db = new sqlite.Database('./travel_destinations.db');
 const server = express();
 
-/* Sätter konfiguration på servern */
-server
-  /* Data ska kommuniceras i JSON-format */
-  .use(express.json())
-  /* Sättet som data ska kodas och avkodas på */
-  .use(express.urlencoded({ extended: false }))
-  .use((req, res, next) => {
-    /* Headers för alla förfrågningar. Hanterar regler för CORS (vilka klienter som får anropa vår server och hur.) */
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', '*');
-    res.header('Access-Control-Allow-Methods', '*');
-    /* Säger åt servern att fortsätta processa förfrågan */
-    next();
-  });
+// Configure multer for file storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/'); // make sure this directory exists
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // prepend the timestamp to the original file name
+  },
+});
+// Konfigurera servern att tjäna statiska filer från 'uploads'-mappen
+server.use('/uploads', express.static('uploads'));
 
-/* Startar servern på port 3000 */
+const cors = require('cors');
+server.use(cors());
+
+const upload = multer({ storage: storage });
+
+server.use(express.json());
+server.use(express.urlencoded({ extended: false }));
+server.use('/uploads', express.static('uploads')); // Serve static files from uploads directory
+
+server.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', '*');
+  res.header('Access-Control-Allow-Methods', '*');
+  next();
+});
+
 server.listen(3000, () => {
-  /* Meddelande för feedback att servern körs */
   console.log('Server running on http://localhost:3000');
 });
 
-/* Hantering av GET-requests till endpointen /users */
-server.get('/users', (req, res) => {
-  /* sql-query för att hämta alla users ur databasen. */
-  const sql = 'SELECT * FROM users';
-  /* Anrop till db-objektets funktion .all som används till att hämta upp rader ur en tabell */
-  db.all(sql, (err, rows) => {
-    /* Callbackfunktionen har parametern err för att lagra eventuella fel */
+// GET all destinations
+server.get('/destinations', (req, res) => {
+  const sql = 'SELECT * FROM destinations';
+  db.all(sql, [], (err, rows) => {
     if (err) {
-      /* Om det finns något i det objektet skickar vi ett svar tillbaka att något gick fel (status 500) och info om vad som gick fel (innehållet i objektet err) */
-      res.status(500).send(err);
+      res.status(500).send(err.message);
     } else {
-      /* Annars, om allt gick bra, skickar vi de rader som hämtades upp.  */
-      res.send(rows);
+      res.json(rows);
     }
   });
 });
 
-server.get('/users/:id', (req, res) => {
+// GET a single destination by id
+server.get('/destinations/:id', (req, res) => {
   const id = req.params.id;
-
-  const sql = `SELECT * FROM users WHERE id=${id}`;
-
-  db.all(sql, (err, rows) => {
+  const sql = 'SELECT * FROM destinations WHERE id = ?';
+  db.get(sql, id, (err, row) => {
     if (err) {
-      res.status(500).send(err);
+      res.status(500).send(err.message);
     } else {
-      res.send(rows[0]);
+      res.json(row);
     }
   });
 });
 
-server.post('/users', (req, res) => {
-  const user = req.body;
-  const sql = `INSERT INTO users(firstName, lastName, username, color) VALUES (?,?,?,?)`;
+// POST a new destination with images
+server.post(
+  '/destinations',
+  upload.fields([
+    { name: 'backgroundImage', maxCount: 1 },
+    { name: 'galleryImage', maxCount: 1 },
+  ]),
+  (req, res) => {
+    const { name, location, description } = req.body;
+    const backgroundImage = req.files['backgroundImage']
+      ? req.files['backgroundImage'][0].path
+      : null;
+    const galleryImage = req.files['galleryImage']
+      ? req.files['galleryImage'][0].path
+      : null;
 
-  db.run(sql, Object.values(user), (err) => {
-    if (err) {
-      console.log(err);
-      res.status(500).send(err);
-    } else {
-      res.send('Användaren sparades');
-    }
-  });
-});
+    const sql =
+      'INSERT INTO destinations (name, location, description, backgroundImage, galleryImage) VALUES (?, ?, ?, ?, ?)';
+    db.run(
+      sql,
+      [name, location, description, backgroundImage, galleryImage],
+      function (err) {
+        if (err) {
+          console.error(err.message);
+          res.status(500).send('Failed to add destination to the database.');
+        } else {
+          res.status(201).json({
+            id: this.lastID,
+            message: 'Destination added successfully.',
+          });
+        }
+      }
+    );
+  }
+);
 
-server.put('/users', (req, res) => {
-  const bodyData = req.body;
-
-  const id = bodyData.id;
-  const user = {
-    firstName: bodyData.firstName,
-    lastName: bodyData.lastName,
-    username: bodyData.username,
-    color: bodyData.color
-  };
-
-  let updateString = '';
-  const columnsArray = Object.keys(user);
-  columnsArray.forEach((column, i) => {
-    updateString += `${column}="${user[column]}"`;
-    if (i !== columnsArray.length - 1) updateString += ',';
-  });
-  const sql = `UPDATE users SET ${updateString} WHERE id=${id}`;
-
-  db.run(sql, (err) => {
-    if (err) {
-      console.log(err);
-      res.status(500).send(err);
-    } else {
-      res.send('Användaren uppdaterades');
-    }
-  });
-  //UPDATE users SET firstName="Mikaela",lastName="Hedberg" WHERE id=1
-});
-
-server.delete('/users/:id', (req, res) => {
+// PUT to update a destination
+server.put('/destinations/:id', (req, res) => {
   const id = req.params.id;
-  const sql = `DELETE FROM users WHERE id = ${id}`;
+  const updates = req.body;
+  const sql =
+    'UPDATE destinations SET name = ?, location = ?, description = ?, image = ? WHERE id = ?';
+  db.run(
+    sql,
+    [updates.name, updates.location, updates.description, updates.image, id],
+    function (err) {
+      if (err) {
+        res.status(500).send(err.message);
+      } else {
+        res.json({ changes: this.changes });
+      }
+    }
+  );
+});
 
-  db.run(sql, (err) => {
+// DELETE a destination
+server.delete('/destinations/:id', (req, res) => {
+  const id = req.params.id;
+  const sql = 'DELETE FROM destinations WHERE id = ?';
+  db.run(sql, id, function (err) {
     if (err) {
-      console.log(err);
-      res.status(500).send(err);
+      res.status(500).send(err.message);
     } else {
-      res.send('Användaren borttagen');
+      res.json({ changes: this.changes });
     }
   });
 });

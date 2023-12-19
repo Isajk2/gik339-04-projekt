@@ -1,0 +1,52 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+body {
+  animation: fadeIn 0.8s ease-in-out forwards;
+  background-size: cover;
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  background-position: center center;
+  transition: background-image 0.8s;
+}
+
+body::before {
+  content: '';
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: -1;
+}
+
+.destination-name {
+  font-family: 'Anton', sans-serif;
+}
+
+/* Zoom effect on hover for the image only */
+.zoom-on-hover:hover {
+  transform: scale(1.15);
+  transition: transform 0.8s ease;
+}
+
+/* Stilar för informationssektionen */
+#info-section {
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Centrera innehållet vertikalt */
+  padding: 1rem;
+  overflow-y: auto; /* Lägg till skroll om innehållet är för långt */
+}
+
+#info-section.hidden {
+  display: none; /* Dölj sektionen när den är tom */
+}
