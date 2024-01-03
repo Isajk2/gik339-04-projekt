@@ -1,74 +1,112 @@
-// Modal Dialog Functions
 function openModal() {
   document.getElementById('contributionModal').classList.remove('hidden');
+  resetModalForm();
 }
 
-function toggleModal() {
-  document.getElementById('contributionModal').classList.toggle('hidden');
+function resetModalForm() {
+  const form = document.getElementById('contributionForm');
+  form.reset();
+  document.getElementById('destinationId').value = ''; // Nollställer destinationId varje gång modalen öppnas för nytt bidrag
+  document.getElementById('delete-button').classList.add('hidden');
+  document.querySelector(
+    '#contributionForm button[type="submit"]'
+  ).textContent = 'Skicka';
 }
 
-function closeModal(event) {
-  if (event.target.id === 'contributionModal') {
-    toggleModal();
-  }
+function closeModal() {
+  document.getElementById('contributionModal').classList.add('hidden');
+  resetModalForm();
+}
+
+// Säkerställ att event-propagation stoppas så att closeModal inte aktiveras när modalen själv klickas
+function modalContentClick(event) {
+  event.stopPropagation();
 }
 
 // Form Submission and Page Initialization
 document.addEventListener('DOMContentLoaded', function () {
+  setupInitialView();
+  setupFormSubmission();
+  // Lägger till event listeners för knappar
+  document
+    .getElementById('contribute-button')
+    .addEventListener('click', openModal);
+  // Eftersom closeModal() är anropad när modal bakgrund klickas, behöver vi inte passa event argumentet
+  document
+    .getElementById('contributionModal')
+    .addEventListener('click', closeModal);
+});
+
+function setupInitialView() {
   const infoSection = document.getElementById('info-section');
   infoSection.innerHTML = `
-  <div class="flex flex-col h-full p-4 justify-center items-start">
-  <h2 class="text-4xl font-bold text-white mb-4">Upptäck och Dela Dina Resefavoriter</h2>
-  <p class="text-lg text-white mb-4">
-      Välkommen till en värld av upptäckter! På SightSharing delar resenärer från hela världen med sig av sina mest älskade platser. 
-      Från dolda pärlor till berömda landmärken, hitta inspiration för ditt nästa äventyr och dela med dig av dina egna oförglömliga erfarenheter.
-  </p>
-  <button
-      id="explore-button"
-      class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-  >
-      Börja Utforska
-  </button>
-</div>
-
+    <div class="flex flex-col h-full p-4 justify-center items-start">
+      <h2 class="text-4xl font-bold text-white mb-4">Upptäck och Dela Dina Resefavoriter</h2>
+      <p class="text-lg text-white mb-4">
+          Välkommen till en värld av upptäckter! På SightSharing delar resenärer från hela världen med sig av sina mest älskade platser. 
+          Från dolda pärlor till berömda landmärken, hitta inspiration för ditt nästa äventyr och dela med dig av dina egna oförglömliga erfarenheter.
+      </p>
+      <button id="explore-button" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Börja Utforska</button>
+    </div>
   `;
-  // Lägg till en eventlyssnare för 'Börja utforska' knappen
   document
     .getElementById('explore-button')
     .addEventListener('click', function () {
-      fetchDestinations((randomize = true));
+      fetchDestinations(true);
     });
   fetchDestinations();
+  document.getElementById('edit-button').classList.add('hidden');
+}
 
+function setupFormSubmission() {
   const form = document.getElementById('contributionForm');
   form.addEventListener('submit', function (event) {
-    event.preventDefault(); // Prevent default form submission
-
+    event.preventDefault();
+    const destinationId = document.getElementById('destinationId').value;
+    const isUpdating = destinationId !== '';
+    const method = isUpdating ? 'PUT' : 'POST';
+    const url = isUpdating
+      ? `http://localhost:3000/destinations/${destinationId}`
+      : 'http://localhost:3000/destinations';
     const formData = new FormData(form);
-    fetch('http://localhost:3000/destinations', {
-      method: 'POST',
-      body: formData,
-    })
-      .then((response) => {
-        console.log(response); // Logga hela svaret
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then((data) => {
-        console.log('Success:', data);
-        closeModal();
-        form.reset(); // Optionally, clear the form fields
-        alert('Ditt bidrag har skickats!'); // Feedback to the user
-        fetchDestinations(); // Fetch the updated list of destinations
-      })
-      .catch((error) => {
-        console.error('Error:', error);
-        alert('Ett fel inträffade när ditt bidrag skulle skickas.'); // Error feedback to the user
-      });
+
+    submitDestinationData(url, method, formData, isUpdating);
   });
-});
+}
+
+function submitDestinationData(url, method, formData, isUpdating) {
+  fetch(url, { method, body: formData })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      alert(`Sevärdheten har ${isUpdating ? 'uppdaterats' : 'lagts till'}.`);
+      fetchDestinations(); // Ladda om alla sevärdheter
+      closeModal(); // Stänger modalen
+    })
+    .catch((error) => {
+      console.error('Error:', error);
+      alert('Ett fel inträffade när ditt bidrag skulle skickas.');
+    });
+}
+
+function updateInfoSectionAfterEdit(updatedDestination) {
+  const existingCard = document.querySelector(
+    `[data-id='${updatedDestination.id}']`
+  );
+  if (existingCard) {
+    // Uppdatera kortet med den nya informationen
+    // (Du kan behöva justera detta beroende på hur ditt kort är uppbyggt)
+    existingCard.querySelector('.destination-name').textContent =
+      updatedDestination.name;
+    existingCard.querySelector('.destination-description').textContent =
+      updatedDestination.description;
+    // Uppdatera eventuella andra element som behövs
+  }
+}
 
 async function fetchDestinations(randomize = false) {
   try {
@@ -98,24 +136,24 @@ async function fetchDestinations(randomize = false) {
 }
 
 function createCard(destination) {
-  const pathSegments = destination.galleryImage
-    .split('\\')
-    .map((segment) => encodeURIComponent(segment));
-  const imageUrl = pathSegments.join('/');
+  // Kontrollera om bildsökvägen finns och ersätt bakåtstreck med framåtstreck
+  const imageUrl = destination.galleryImage
+    ? `http://localhost:3000/${destination.galleryImage.replace(/\\/g, '/')}`
+    : '../images/noImage.png'; // Ange en standardbild om ingen finns
 
-  // Skapar huvudkortdiven.
+  // Skapa kortdiven
   const card = document.createElement('div');
   card.className =
     'mb-4 rounded-lg shadow-lg overflow-hidden relative text-white';
 
-  // Skapar bildcontainern som kommer att zoomas.
+  // Skapa bildcontainern
   const imageContainer = document.createElement('div');
   imageContainer.className =
-    'bg-cover bg-center rounded-lg cursor-pointer transition-transform duration-700 ease-in-out'; // Ökad duration för en långsammare effekt
-  imageContainer.style.backgroundImage = `url('/server/${imageUrl}')`;
+    'bg-cover bg-center rounded-lg cursor-pointer transition-transform duration-700 ease-in-out';
+  imageContainer.style.backgroundImage = `url('${imageUrl}')`;
   imageContainer.classList.add('h-full', 'w-full');
 
-  // Lägger till hover-effekten för zoomning endast på bilden.
+  // Lägg till hover-effekten för zoomning endast på bilden
   card.addEventListener('mouseenter', () => {
     imageContainer.classList.add('scale-110');
   });
@@ -123,15 +161,15 @@ function createCard(destination) {
     imageContainer.classList.remove('scale-110');
   });
 
-  // Skapar en textoverlay som inte kommer att zoomas.
+  // Skapa textoverlay
   const textOverlay = document.createElement('div');
   textOverlay.className =
     'absolute bottom-0 left-0 bg-black bg-opacity-50 p-2 rounded-bl-lg w-full';
   textOverlay.innerHTML = `<h3 class="text-sm font-bold">${destination.name}</h3>`;
 
-  // Lägger till imageContainer och textOverlay som barn till kortet.
+  // Lägg till imageContainer och textOverlay till kortet
   card.appendChild(imageContainer);
-  card.appendChild(textOverlay); // Detta gör att texten inte påverkas av zoomningen.
+  card.appendChild(textOverlay);
 
   return card;
 }
@@ -142,6 +180,13 @@ function updateInfoSection(destination) {
   const nameLength = name.length;
   let textSizeClass = nameLength > 10 ? 'text-7xl' : 'text-8xl';
   textSizeClass = nameLength > 20 ? 'text-6xl' : textSizeClass;
+
+  // Ändra bildens URL för att använda den korrekta server-sökvägen
+  const backgroundImageUrl = destination.backgroundImage
+    ? `http://localhost:3000/uploads/${destination.backgroundImage
+        .split('\\')
+        .pop()}`
+    : '../images/default_background.png'; // Använd standardbakgrund om ingen bild finns
 
   infoSection.innerHTML = `
     <div class="flex flex-col h-full p-4">
@@ -158,9 +203,80 @@ function updateInfoSection(destination) {
     </div>
   `;
 
+  // Uppdatera bakgrundsbilden
+  document.body.style.backgroundImage = `url('${backgroundImageUrl}')`;
+  // Visa Redigera-knappen och uppdatera dess onclick-händelse
+  const editButton = document.getElementById('edit-button');
+  editButton.classList.remove('hidden'); // Ta bort 'hidden' klassen för att visa knappen
+  editButton.onclick = () => openEditModal(destination.id);
+
   infoSection.classList.remove('hidden');
-  document.body.style.backgroundImage = `url('/server/${destination.backgroundImage.replace(
-    /\\/g,
-    '/'
-  )}')`;
+}
+
+function openEditModal(destinationId) {
+  console.log(destinationId);
+  // Sätt destinationens ID i ett dolt fält i formuläret
+  document.getElementById('destinationId').value = destinationId;
+
+  // Hämta befintlig data om destinationen
+  fetch(`http://localhost:3000/destinations/${destinationId}`)
+    .then((response) => response.json())
+    .then((destination) => {
+      // Fyll i formuläret med befintlig data
+      const form = document.getElementById('contributionForm');
+      form.elements['name'].value = destination.name;
+      form.elements['location'].value = destination.location;
+      form.elements['description'].value = destination.description;
+
+      // Här kan du hantera befintliga bildfiler om det behövs
+
+      // Visa "Ta bort sevärdhet" knappen och konfigurera dess onclick-händelse
+      const deleteButton = document.getElementById('delete-button');
+      deleteButton.classList.remove('hidden');
+      deleteButton.onclick = () => deleteDestination(destinationId);
+
+      // Ändra texten på skicka-knappen till "Uppdatera"
+      const submitButton = document.querySelector(
+        '#contributionForm button[type="submit"]'
+      );
+      submitButton.textContent = 'Uppdatera';
+
+      // Ändra formulärets beteende för att hantera uppdatering istället för skapande
+      form.onsubmit = (event) => submitEditForm(event, destinationId);
+
+      // Visa modalen
+      document.getElementById('contributionModal').classList.remove('hidden');
+    })
+    .catch((error) => console.error('Error:', error));
+}
+
+// Modal Dialog Functions
+function openAddModal() {
+  document.getElementById('destinationId').value = ''; // Rensa destinationId för ny tillägg
+  openModal(); // Anropa openModal för att öppna modalen
+  console.log(destinationId);
+}
+
+function handleSuccess(message) {
+  closeModal();
+  alert(message);
+  fetchDestinations();
+}
+
+function deleteDestination(destinationId) {
+  if (confirm('Är du säker på att du vill ta bort denna sevärdhet?')) {
+    fetch(`http://localhost:3000/destinations/${destinationId}`, {
+      method: 'DELETE',
+    })
+      .then((response) => {
+        if (!response.ok)
+          throw new Error(`HTTP error! status: ${response.status}`);
+        return response.json();
+      })
+      .then(() => handleSuccess('Sevärdheten har tagits bort.'))
+      .catch((error) => {
+        console.error('Error:', error);
+        alert('Ett fel inträffade vid borttagning: ' + error.message);
+      });
+  }
 }

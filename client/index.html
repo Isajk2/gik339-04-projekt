@@ -6,7 +6,7 @@
     <title>SightSharing - Dela med dig av dina favoritsevärdheter</title>
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="../css/styles.css" />
     <link
       href="https://fonts.googleapis.com/css2?family=Anton&display=swap"
       rel="stylesheet"
@@ -15,16 +15,16 @@
   </head>
   <body
     class="flex flex-col h-screen"
-    style="background-image: url('/images/default_background.png')"
+    style="background-image: url('../images/default_background.png')"
   >
     <main class="flex-1 overflow-hidden"></main>
     <!-- Navbar -->
     <nav class="text-white p-4">
       <nav class="text-white p-4">
         <div class="container mx-auto flex justify-between items-center">
-          <a href="#" class="text-2xl font-bold">SightSharing</a>
+          <a href="index.html" class="text-2xl font-bold">SightSharing</a>
           <div>
-            <a href="#" class="px-4 hover:text-gray-300">Hem</a>
+            <a href="index.html" class="px-4 hover:text-gray-300">Hem</a>
             <a href="#" class="px-4 hover:text-gray-300"
               >Utforska Destinationer</a
             >
@@ -53,20 +53,32 @@
       </div>
     </div>
 
-    <!-- Bidra Button and Content Grid -->
-    <div class="container mx-auto px-4 py-10">
+    <!-- Bidra Button and Edit Button Container -->
+    <div class="container mx-auto px-4 py-10 flex justify-between items-center">
+      <!-- Bidra Button -->
       <button
+        id="contribute-button"
         class="bg-green-800 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-        onclick="openModal()"
       >
         Bidra med en sevärdhet
       </button>
-      <div
-        id="content-grid"
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+
+      <!-- Redigera Button -->
+      <button
+        id="edit-button"
+        class="hidden bg-orange-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
+        onclick="openEditModal()"
       >
-        <!-- Additional content if needed -->
-      </div>
+        Redigera sevärdhet
+      </button>
+    </div>
+
+    <!-- Content Grid -->
+    <div
+      id="content-grid"
+      class="container mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+    >
+      <!-- Additional content if needed -->
     </div>
 
     <!-- Tailwind Modal -->
@@ -82,7 +94,7 @@
         >
           <div class="flex justify-between items-center pb-3">
             <p class="text-2xl font-bold">Bidra med en sevärdhet</p>
-            <div class="cursor-pointer z-50" onclick="toggleModal()">
+            <div class="cursor-pointer z-50" onclick="closeModal()">
               <!-- SVG for close icon -->
               <svg
                 class="fill-current text-black"
@@ -100,6 +112,12 @@
           <div class="modal-body">
             <!-- The enctype attribute is important for forms that have a file upload control -->
             <form id="contributionForm" enctype="multipart/form-data">
+              <input
+                type="hidden"
+                id="destinationId"
+                name="destinationId"
+                value=""
+              />
               <div class="mb-4">
                 <label
                   class="block text-gray-700 text-sm font-bold mb-2"
@@ -173,6 +191,13 @@
                   type="submit"
                 >
                   Skicka
+                </button>
+                <button
+                  id="delete-button"
+                  class="hidden bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+                  type="button"
+                >
+                  Ta bort sevärdhet
                 </button>
               </div>
             </form>
