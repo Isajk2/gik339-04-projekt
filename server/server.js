@@ -1,47 +1,53 @@
-const express = require('express');
-const multer = require('multer');
-const sqlite = require('sqlite3').verbose();
-const path = require('path');
-const cors = require('cors');
-const fs = require('fs');
-const sharp = require('sharp');
+// sätter server med express framework för att hantera filuppladdningar
+
+// importeringar
+const express = require('express'); // webb framework för node.js
+const multer = require('multer'); // 'middleware' för hantering av multipart/form-data encoding som används för filuppladdningar
+const sqlite = require('sqlite3').verbose(); // node.js 'wrapper' för sqlite ('serverless database engine')
+const path = require('path'); // modul för hantering och transformering av filvägar
+const cors = require('cors'); // 'middleware' för enabling av CORS ('cross origin resource sharing') i express
+const fs = require('fs'); // filsystem modul för filer och dictionaries
+const sharp = require('sharp'); // högpresterande bildprocesserings bibliotek
 sharp.cache(false);
 
+// skapar instans för express server och sqlite databas
 const server = express();
+// hämtar 'travel_destinations.db'
 const db = new sqlite.Database('./travel_destinations.db');
 
-// Skapa en temporär mapp för uppladdningar om den inte redan finns
+// skapar temporär mapp för uppladdningar om den inte redan existerar
 const tempUploadsPath = path.join(__dirname, 'uploads/temp');
 if (!fs.existsSync(tempUploadsPath)) {
   fs.mkdirSync(tempUploadsPath, { recursive: true });
 }
 
-// Konfigurera multer för filuppladdning
+// konfigurerar 'multer' och sätter temporär filväg för filuppladdningar
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, tempUploadsPath); // Använd den temporära mappen
+    cb(null, tempUploadsPath); // använder den temporära mappen
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname)); // Tidsstämpel och original filnamn
+    cb(null, Date.now() + path.extname(file.originalname)); // sätter filnamn med tidsstämpel och filens originella namn's extension
   },
 });
 
+// 'multer' setup med avändning av den konfigurerade lagringen
 const upload = multer({ storage: storage });
 
-// Tillåt CORS för alla domäner
+// tillåter CORS för servern
 server.use(cors());
 
-// Tolka JSON och URL-kodade data
+// tolkar JSON och URL-kodad data
 server.use(express.json());
 server.use(express.urlencoded({ extended: false }));
 
-// Middleware för att servera statiska filer
+// förser statiska filer från klient, css, images och uploads mapparna
 server.use(express.static(path.join(__dirname, '../client')));
 server.use('/css', express.static(path.join(__dirname, '../css')));
 server.use('/images', express.static(path.join(__dirname, '../images')));
 server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Lägg till headers för att tillåta CORS och HTTP-metoder
+// hanterar CORS-headers för varje inkommande förfrågan
 server.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', '*');
@@ -49,14 +55,15 @@ server.use((req, res, next) => {
   next();
 });
 
-// Hjälpfunktion för att komprimera och flytta bilder
+// hjälpfunktion för komprimering och omplacering av bilder
 async function compressAndMoveImage(file, newFilename) {
-  const finalPath = path.join(__dirname, 'uploads', newFilename);
+  const finalPath = path.join(__dirname, 'uploads', newFilename); // skapar slutlig sökväg där den komprimerade bilden sparas
   try {
-    await sharp(file.path).jpeg({ quality: 80 }).toFile(finalPath);
+    await sharp(file.path).jpeg({ quality: 80 }).toFile(finalPath); // använder sharp för att komprimera bild 80% jpeg och spara på den slutliga sökvägen
 
-    // Radera den temporära filen
+    // raderar den temporära filen efter komprimering och omplacering
     fs.unlink(file.path, (err) => {
+      // felmeddelanden konsoll
       if (err) {
         console.error('Error deleting temp file:', file.path, err);
       } else {
@@ -64,81 +71,94 @@ async function compressAndMoveImage(file, newFilename) {
       }
     });
 
-    // Returnera endast den relativa sökvägen
+    // returnerar sökvägen för den komprimerade bilden
     return path.join('uploads', newFilename);
+    // felmeddelande konsoll
   } catch (err) {
     console.error('Error during image processing', err);
     throw err;
   }
 }
 
-// GET all destinations
+// GET all destinations - hämtar alla destinationer från databasen
 server.get('/destinations', (req, res) => {
   const sql = 'SELECT * FROM destinations';
+  // SQL förfrågan
   db.all(sql, [], (err, rows) => {
     if (err) {
-      res.status(500).send(err.message);
+      res.status(500).send(err.message); // skickar felstatus om fel uppstår
     } else {
-      res.json(rows);
+      res.json(rows); // annars skicka JSON-svar med alla destinationer
     }
   });
 });
 
-// GET a single destination by id
+// GET a single destination by id - hämtar specifik destination med ID
 server.get('/destinations/:id', (req, res) => {
   const id = req.params.id;
   const sql = 'SELECT * FROM destinations WHERE id = ?';
+  // SQL förfrågan
   db.get(sql, id, (err, row) => {
     if (err) {
-      res.status(500).send(err.message);
+      res.status(500).send(err.message); // skickar felstatus om fel uppstår
     } else {
-      res.json(row);
+      res.json(row); // annars skicka JSON-svar med specifik destination
     }
   });
 });
 
-// POST a new destination with images
+// POST a new destination with images - hanterar post förfrågningar för att lägga till destinationer
 server.post(
   '/destinations',
+  // 'multer' setup för att hantera filuppladdningar med specifierade fält
   upload.fields([
     { name: 'backgroundImage', maxCount: 1 },
     { name: 'galleryImage', maxCount: 1 },
   ]),
+  // asynkron funktion för att hantera post förfrågan
   async (req, res) => {
     try {
-      let backgroundImage, galleryImage;
+      let backgroundImage, galleryImage; // initialiserar variabler för att lagra filnamn för komprimerade bilder
 
-      // Bearbeta bakgrundsbilden om den finns
+      // kontrollerar om uppladdad bakgrundbild existerar
       if (req.files['backgroundImage']) {
+        // hämtar filnamn för den nya komprimerade bakgrundsbilden
         const newBackgroundFilename = req.files['backgroundImage'][0].filename;
+        // komprimerar och flyttar bakgrundsbilden samt lagrar sökväg
         backgroundImage = await compressAndMoveImage(
           req.files['backgroundImage'][0],
           newBackgroundFilename
         );
       }
 
-      // Bearbeta galleribilden om den finns
+      // kontrollerar om uppladdad galleribild existerar
       if (req.files['galleryImage']) {
+        // hämtar filnamn för den nya komprimerade galleribilden
         const newGalleryFilename = req.files['galleryImage'][0].filename;
+        // komprimerar och flyttar galleribilden samt lagrar sökväg
         galleryImage = await compressAndMoveImage(
           req.files['galleryImage'][0],
           newGalleryFilename
         );
       }
 
+      // extraherar data från request body
       const { name, location, description } = req.body;
 
-      // Skapa SQL-fråga för att lägga till en ny destination
+      // SQL-förfrågan för att lägga till en ny destination till databasen
       const sql =
         'INSERT INTO destinations (name, location, description, backgroundImage, galleryImage) VALUES (?, ?, ?, ?, ?)';
+      // exekverar SQL förfrågan med erhållen data
       db.run(
         sql,
         [name, location, description, backgroundImage, galleryImage],
         function (err) {
+          // error - meddelar vid problem med tillägg
           if (err) {
             console.error(err.message);
             res.status(500).send('Failed to add destination to the database.');
           } else {
+            // success - JSON-svar med destination ID och meddelande
             res.status(201).json({
               id: this.lastID,
               message: 'Destination added successfully.',
@@ -147,13 +167,14 @@ server.post(
         }
       );
     } catch (err) {
+      // hanterar och loggar fel eller undantag med bildprocess
       console.error('Error processing images', err);
       res.status(500).send('Error processing images');
     }
   }
 );
 
-// PUT to update a destination
+// PUT to update a destination - hanterar förfrågan för att uppdatera existerande destinationer
 server.put(
   '/destinations/:id',
   upload.fields([

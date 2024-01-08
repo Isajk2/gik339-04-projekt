@@ -3,6 +3,12 @@ function openModal() {
   resetModalForm();
 }
 
+function closeModal() {
+  document.getElementById('contributionModal').classList.add('hidden');
+  resetModalForm();
+}
+
+//återställ formuläret i modalen
 function resetModalForm() {
   const form = document.getElementById('contributionForm');
   form.reset();
@@ -11,11 +17,6 @@ function resetModalForm() {
   document.querySelector(
     '#contributionForm button[type="submit"]'
   ).textContent = 'Skicka';
-}
-
-function closeModal() {
-  document.getElementById('contributionModal').classList.add('hidden');
-  resetModalForm();
 }
 
 // Säkerställ att event-propagation stoppas så att closeModal inte aktiveras när modalen själv klickas
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function () {
     .addEventListener('click', closeModal);
 });
 
+// det inledande innehållet när sidan laddas för första gången
 function setupInitialView() {
   const infoSection = document.getElementById('info-section');
   infoSection.innerHTML = `
@@ -57,7 +59,7 @@ function setupInitialView() {
   fetchDestinations();
   document.getElementById('edit-button').classList.add('hidden');
 }
-
+// Funktion för  Put&Post (uppdatera & lägga till)
 function setupFormSubmission() {
   const form = document.getElementById('contributionForm');
   form.addEventListener('submit', function (event) {
@@ -73,24 +75,33 @@ function setupFormSubmission() {
     submitDestinationData(url, method, formData, isUpdating);
   });
 }
+// Skickar destinationens data till servern och hanterar uppdatering eller error
+async function submitDestinationData(url, method, formData, isUpdating) {
+  try {
+    const response = await fetch(url, { method, body: formData });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const message = `Sevärdheten har ${
+      isUpdating ? 'uppdaterats' : 'lagts till'
+    }.`;
+    handleSuccess(message);
 
-function submitDestinationData(url, method, formData, isUpdating) {
-  fetch(url, { method, body: formData })
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then((data) => {
-      alert(`Sevärdheten har ${isUpdating ? 'uppdaterats' : 'lagts till'}.`);
-      fetchDestinations(); // Ladda om alla sevärdheter
-      closeModal(); // Stänger modalen
-    })
-    .catch((error) => {
-      console.error('Error:', error);
-      alert('Ett fel inträffade när ditt bidrag skulle skickas.');
-    });
+    // Specifik hantering för uppdatering
+    if (isUpdating) {
+      const updatedDestination = {
+        id: document.getElementById('destinationId').value,
+        name: formData.get('name'),
+        location: formData.get('location'),
+        description: formData.get('description'),
+        // Lägg till ytterligare fält om nödvändigt
+      };
+      updateInfoSection(updatedDestination);
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Ett fel inträffade när ditt bidrag skulle skickas.');
+  }
 }
 
 function updateInfoSectionAfterEdit(updatedDestination) {
@@ -98,13 +109,14 @@ function updateInfoSectionAfterEdit(updatedDestination) {
     `[data-id='${updatedDestination.id}']`
   );
   if (existingCard) {
-    // Uppdatera kortet med den nya informationen
+    // Uppdatera kortet med den nya informationen ----------------------------------------
     // (Du kan behöva justera detta beroende på hur ditt kort är uppbyggt)
     existingCard.querySelector('.destination-name').textContent =
       updatedDestination.name;
     existingCard.querySelector('.destination-description').textContent =
       updatedDestination.description;
     // Uppdatera eventuella andra element som behövs
+    fetchDestinations(); // Ladda om alla sevärdheter
   }
 }
 
@@ -248,6 +260,7 @@ function openEditModal(destinationId) {
       document.getElementById('contributionModal').classList.remove('hidden');
     })
     .catch((error) => console.error('Error:', error));
+  fetchDestinations();
 }
 
 // Modal Dialog Functions
@@ -257,26 +270,38 @@ function openAddModal() {
   console.log(destinationId);
 }
 
-function handleSuccess(message) {
+// stänger modalen när en uppdatering lyckats genom att stänga modalen, visa ett meddelande om att det lyckats, och uppdatera listan med destinationer.
+// Om det finns en nyare version av destinationen, så kommer även informationen om den att uppdateras på sidan.
+function handleSuccess(message, updatedDestination = null) {
   closeModal();
   alert(message);
-  fetchDestinations();
+
+  if (updatedDestination) {
+    // Uppdatera info-section med den uppdaterade destinationen
+    submitDestinationData(updatedDestination);
+  } else {
+    // Om ingen specifik destination tillhandahålls, hämta och visa alla destinationer
+    fetchDestinations();
+  }
 }
 
-function deleteDestination(destinationId) {
+// Tar bort en destination efter användarens bekräftelse och hanterar uppdatering eller error.
+async function deleteDestination(destinationId) {
   if (confirm('Är du säker på att du vill ta bort denna sevärdhet?')) {
-    fetch(`http://localhost:3000/destinations/${destinationId}`, {
-      method: 'DELETE',
-    })
-      .then((response) => {
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`);
-        return response.json();
-      })
-      .then(() => handleSuccess('Sevärdheten har tagits bort.'))
-      .catch((error) => {
-        console.error('Error:', error);
-        alert('Ett fel inträffade vid borttagning: ' + error.message);
-      });
+    try {
+      const response = await fetch(
+        `http://localhost:3000/destinations/${destinationId}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      handleSuccess('Sevärdheten har tagits bort.');
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Ett fel inträffade vid borttagning: ' + error.message);
+    }
   }
 }
