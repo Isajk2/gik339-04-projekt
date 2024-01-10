@@ -50,3 +50,33 @@ body::before {
 #info-section.hidden {
   display: none; /* Dölj sektionen när den är tom */
 }
+#prev-button,
+#next-button {
+  width: 30px; /* Width of the button */
+  height: 30px; /* Height of the button */
+  background-color: rgba(255, 255, 255, 0.5); /* Transparent white background */
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%); /* Triangle shape */
+  border: none; /* No border */
+  cursor: pointer; /* Pointer cursor on hover */
+}
+
+#next-button {
+  clip-path: polygon(0% 0%, 100% 50%, 0% 100%); /* Left triangle shape */
+  margin-left: 50px;
+}
+
+#prev-button {
+  clip-path: polygon(100% 0%, 0% 50%, 100% 100%); /* Right triangle shape */
+  margin-right: 50px;
+}
+
+/* Hover effect for the buttons */
+#prev-button:hover,
+#next-button:hover {
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.7
+  ); /* Slightly less transparent on hover */
+}

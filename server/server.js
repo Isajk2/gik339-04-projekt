@@ -185,8 +185,8 @@ server.put(
     const id = req.params.id;
     const { name, location, description } = req.body;
 
+    // hämtar existerande destination för att erhålla de tidigare bildvägarna
     try {
-      // Hämta den befintliga destinationen för att få de gamla bildvägarna
       const existingSql = 'SELECT * FROM destinations WHERE id = ?';
       const existingDestination = await new Promise((resolve, reject) => {
         db.get(existingSql, [id], (err, row) => {
@@ -200,7 +200,7 @@ server.put(
 
       let backgroundImage, galleryImage;
 
-      // Bearbeta och uppdatera nya bilder
+      // bearbetar och uppdaterar nya bakgrundsbilder
       if (req.files['backgroundImage']) {
         const newBackgroundFilename = req.files['backgroundImage'][0].filename;
         backgroundImage = await compressAndMoveImage(
@@ -208,7 +208,7 @@ server.put(
           newBackgroundFilename
         );
 
-        // Radera den gamla bilden om den finns
+        // radera tidigare bakgrundsbild om den existerar
         if (existingDestination && existingDestination.backgroundImage) {
           const oldImagePath = path.isAbsolute(
             existingDestination.backgroundImage
@@ -216,12 +216,14 @@ server.put(
             ? existingDestination.backgroundImage
             : path.join(__dirname, existingDestination.backgroundImage);
 
+          // hantering av fel och meddelanden till konsoll
           fs.unlink(oldImagePath, (err) => {
             if (err) {
-              // Om felet är att filen inte hittades, ignorera det
+              // ignorerar felet om filen inte hittas
               if (err.code !== 'ENOENT') {
                 console.error('Error deleting old background image:', err);
               }
+              // annars skriv ut i konsoll att bild är borttagen
             } else {
               console.log('Old background image deleted:', oldImagePath);
             }
@@ -229,13 +231,14 @@ server.put(
         }
       }
 
+      // bearbetar och uppdaterar nya galleribilder
       if (req.files['galleryImage']) {
         const newGalleryFilename = req.files['galleryImage'][0].filename;
         galleryImage = await compressAndMoveImage(
           req.files['galleryImage'][0],
           newGalleryFilename
         );
-        // Radera den gamla bilden om den finns
+        // raderar tidigare galleribild om den existerar
         if (existingDestination && existingDestination.galleryImage) {
           fs.unlink(
             path.join(__dirname, existingDestination.galleryImage),
@@ -246,10 +249,11 @@ server.put(
         }
       }
 
-      // Uppdatera databasen med ny information
+      // uppdaterar databasen med ny information
       let sql = `UPDATE destinations SET name = ?, location = ?, description = ?`;
       let params = [name, location, description];
 
+      // uppdaterar databasen med bilder
       if (backgroundImage) {
         sql += `, backgroundImage = ?`;
         params.push(backgroundImage);
@@ -260,19 +264,24 @@ server.put(
         params.push(galleryImage);
       }
 
+      // uppdaterar databasen med destinationens id
       sql += ` WHERE id = ?`;
       params.push(id);
 
+      // exekverar SQL förfrågan för att uppdatera destinationen i databasen
       db.run(sql, params, (err) => {
+        // vid error skickar felmeddelanden till konsollen
         if (err) {
           console.error(err.message);
           res.status(500).send('Failed to update destination in the database.');
+          // annars vid sucess skicka meddelande om lyckad uppdatering
         } else {
           res
             .status(200)
             .json({ id, message: 'Destination updated successfully.' });
         }
       });
+      // felmeddelande vid error med uppladning av bilder
     } catch (err) {
       console.error('Error processing images or updating database', err);
       res.status(500).send('Error processing images or updating database');
@@ -280,17 +289,17 @@ server.put(
   }
 );
 
-// DELETE a destination
+// DELETE a destination - hanterar förfrågan att radera destination
 server.delete('/destinations/:id', (req, res) => {
   const id = req.params.id;
   const sql = 'SELECT * FROM destinations WHERE id = ?';
 
-  // Först hämta posten för att få sökvägarna till bildfilerna
+  // SQL förfrågan för att hämta destination och erhålla sökvägar från databas
   db.get(sql, id, (err, row) => {
     if (err) {
       res.status(500).send(err.message);
     } else {
-      // Ta bort bildfiler om de finns
+      // raderar bildfiler om de existerar
       if (row.backgroundImage) {
         fs.unlink(path.join(__dirname, row.backgroundImage), (err) => {
           if (err) console.error(err);
@@ -302,13 +311,14 @@ server.delete('/destinations/:id', (req, res) => {
         });
       }
 
-      // Efter att bilderna tagits bort, ta bort posten från databasen
+      // efter att bilder raderats, radera destinationen med id från databasen
       const deleteSql = 'DELETE FROM destinations WHERE id = ?';
       db.run(deleteSql, id, function (err) {
         if (err) {
           res.status(500).send(err.message);
         } else {
           res.json({
+            // meddelande vid lyckad borttagning
             message: 'Destination successfully deleted',
             changes: this.changes,
           });
@@ -318,6 +328,7 @@ server.delete('/destinations/:id', (req, res) => {
   });
 });
 
+// startar server och lyssnar på port 3000
 server.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
+  console.log('Server running on http://localhost:3000'); // loggar meddelande till konsoll med serverns url när aktiv
 });

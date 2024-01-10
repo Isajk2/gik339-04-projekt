@@ -5,7 +5,9 @@ function openModal() {
 
 function closeModal() {
   document.getElementById('contributionModal').classList.add('hidden');
+
   resetModalForm();
+  fetchDestinations();
 }
 
 //återställ formuläret i modalen
@@ -82,42 +84,75 @@ async function submitDestinationData(url, method, formData, isUpdating) {
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const message = `Sevärdheten har ${
-      isUpdating ? 'uppdaterats' : 'lagts till'
-    }.`;
+    const operation = isUpdating ? 'uppdaterats' : 'lagts till';
+    const message = `Sevärdheten har ${operation}.`;
+    console.log(`Före handleSuccess: ${message}`);
     handleSuccess(message);
-
-    // Specifik hantering för uppdatering
-    if (isUpdating) {
-      const updatedDestination = {
-        id: document.getElementById('destinationId').value,
-        name: formData.get('name'),
-        location: formData.get('location'),
-        description: formData.get('description'),
-        // Lägg till ytterligare fält om nödvändigt
-      };
-      updateInfoSection(updatedDestination);
-    }
+    console.log(`Efter handleSuccess: ${message}`);
   } catch (error) {
     console.error('Error:', error);
     alert('Ett fel inträffade när ditt bidrag skulle skickas.');
   }
 }
 
-function updateInfoSectionAfterEdit(updatedDestination) {
-  const existingCard = document.querySelector(
-    `[data-id='${updatedDestination.id}']`
-  );
-  if (existingCard) {
-    // Uppdatera kortet med den nya informationen ----------------------------------------
-    // (Du kan behöva justera detta beroende på hur ditt kort är uppbyggt)
-    existingCard.querySelector('.destination-name').textContent =
-      updatedDestination.name;
-    existingCard.querySelector('.destination-description').textContent =
-      updatedDestination.description;
-    // Uppdatera eventuella andra element som behövs
-    fetchDestinations(); // Ladda om alla sevärdheter
+// Globala variabler för paginering
+let currentPage = 1;
+const itemsPerPage = 9; // Antal kort per sida
+
+function showPage(page) {
+  const cards = Array.from(document.querySelectorAll('#gallery-grid > div'));
+  const totalPages = Math.ceil(cards.length / itemsPerPage);
+
+  console.log(`Visar sida ${page} av ${totalPages}`);
+
+  const start = (page - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+
+  cards.forEach((card, index) => {
+    card.style.display = index >= start && index < end ? 'block' : 'none';
+  });
+
+  document.getElementById('prev-button').style.visibility =
+    currentPage === 1 ? 'hidden' : 'visible';
+  document.getElementById('next-button').style.visibility =
+    currentPage === totalPages ? 'hidden' : 'visible';
+}
+
+function setupPaginationButtons() {
+  const prevButton = document.getElementById('prev-button');
+  const nextButton = document.getElementById('next-button');
+
+  // Ta bort befintliga event listeners
+  prevButton.removeEventListener('click', handlePrevClick);
+  nextButton.removeEventListener('click', handleNextClick);
+
+  // Lägg till event listeners igen
+  prevButton.addEventListener('click', handlePrevClick);
+  nextButton.addEventListener('click', handleNextClick);
+}
+
+function handlePrevClick() {
+  if (currentPage > 1) {
+    currentPage--;
+    showPage(currentPage);
   }
+}
+
+function handleNextClick() {
+  const cards = Array.from(document.querySelectorAll('#gallery-grid > div'));
+  const totalPages = Math.ceil(cards.length / itemsPerPage);
+  if (currentPage < totalPages) {
+    currentPage++;
+    showPage(currentPage);
+  }
+}
+
+// Anropa denna funktion när alla kort har lagts till på sidan och efter att en ny sevärdhet har valts
+initPagination();
+
+function initPagination() {
+  showPage(currentPage);
+  setupPaginationButtons();
 }
 
 async function fetchDestinations(randomize = false) {
@@ -125,22 +160,42 @@ async function fetchDestinations(randomize = false) {
     const response = await fetch('http://localhost:3000/destinations');
     const destinations = await response.json();
     const galleryGrid = document.getElementById('gallery-grid');
-    const infoSection = document.getElementById('info-section');
 
-    if (randomize && destinations.length > 0) {
-      // Slumpmässigt välj en destination
-      const randomDestination =
-        destinations[Math.floor(Math.random() * destinations.length)];
-      updateInfoSection(randomDestination);
-    } else {
-      // Rensa tidigare kort innan nya läggs till
-      galleryGrid.innerHTML = '';
-      // Visa alla destinationer som kort
-      destinations.forEach((destination) => {
-        const card = createCard(destination);
-        galleryGrid.appendChild(card);
-        card.addEventListener('click', () => updateInfoSection(destination));
+    galleryGrid.innerHTML = ''; // Rensa tidigare kort
+
+    // Lägg till kort och dess event listeners
+    destinations.forEach((destination) => {
+      const card = createCard(destination);
+      galleryGrid.appendChild(card);
+      card.addEventListener('click', () => {
+        currentDestinationId = destination.id;
+        updateInfoSection(destination);
+        updateBackground(destination);
       });
+    });
+
+    // Initiera paginering här
+    initPagination();
+
+    // Hantera slumpmässigt vald sevärdhet eller befintligt vald sevärdhet
+    if (randomize && destinations.length > 0) {
+      const randomIndex = Math.floor(Math.random() * destinations.length);
+      currentDestinationId = destinations[randomIndex].id;
+      currentPage = Math.ceil((randomIndex + 1) / itemsPerPage);
+      showPage(currentPage);
+      updateInfoSection(destinations[randomIndex]);
+      updateBackground(destinations[randomIndex]);
+    } else if (currentDestinationId) {
+      const currentDestination = destinations.find(
+        (dest) => dest.id === currentDestinationId
+      );
+      if (currentDestination) {
+        updateInfoSection(currentDestination);
+        updateBackground(currentDestination);
+      }
+    } else {
+      // Visa första sidan om ingen sevärdhet är vald
+      showPage(1);
     }
   } catch (error) {
     console.error('Error fetching destinations:', error);
@@ -186,20 +241,23 @@ function createCard(destination) {
   return card;
 }
 
-function updateInfoSection(destination) {
-  const infoSection = document.getElementById('info-section');
-  const name = destination.name;
-  const nameLength = name.length;
-  let textSizeClass = nameLength > 10 ? 'text-7xl' : 'text-8xl';
-  textSizeClass = nameLength > 20 ? 'text-6xl' : textSizeClass;
-
-  // Ändra bildens URL för att använda den korrekta server-sökvägen
+function updateBackground(destination) {
+  // Uppdatera bakgrundsbilden
   const backgroundImageUrl = destination.backgroundImage
     ? `http://localhost:3000/uploads/${destination.backgroundImage
         .split('\\')
         .pop()}`
-    : '../images/default_background.png'; // Använd standardbakgrund om ingen bild finns
+    : '../images/default_background.png';
+  document.body.style.backgroundImage = `url('${backgroundImageUrl}')`;
+}
 
+function updateInfoSection(destination) {
+  const infoSection = document.getElementById('info-section');
+  const name = destination.name;
+  const nameLength = name.length;
+
+  let textSizeClass = nameLength > 10 ? 'text-7xl' : 'text-8xl';
+  textSizeClass = nameLength > 20 ? 'text-6xl' : textSizeClass;
   infoSection.innerHTML = `
     <div class="flex flex-col h-full p-4">
       <h2 class="font-bold mb-2 text-white destination-name ${textSizeClass}">${name}</h2>
@@ -215,11 +273,9 @@ function updateInfoSection(destination) {
     </div>
   `;
 
-  // Uppdatera bakgrundsbilden
-  document.body.style.backgroundImage = `url('${backgroundImageUrl}')`;
   // Visa Redigera-knappen och uppdatera dess onclick-händelse
   const editButton = document.getElementById('edit-button');
-  editButton.classList.remove('hidden'); // Ta bort 'hidden' klassen för att visa knappen
+  editButton.classList.remove('hidden');
   editButton.onclick = () => openEditModal(destination.id);
 
   infoSection.classList.remove('hidden');
@@ -236,11 +292,13 @@ function openEditModal(destinationId) {
     .then((destination) => {
       // Fyll i formuläret med befintlig data
       const form = document.getElementById('contributionForm');
+      // Ta bort befintlig onsubmit-händelselyssnare för att förhindra dubbelbindning
+      form.onsubmit = null;
       form.elements['name'].value = destination.name;
       form.elements['location'].value = destination.location;
       form.elements['description'].value = destination.description;
 
-      // Här kan du hantera befintliga bildfiler om det behövs
+      // Hantera befintliga bildfiler om det behövs...
 
       // Visa "Ta bort sevärdhet" knappen och konfigurera dess onclick-händelse
       const deleteButton = document.getElementById('delete-button');
@@ -248,19 +306,22 @@ function openEditModal(destinationId) {
       deleteButton.onclick = () => deleteDestination(destinationId);
 
       // Ändra texten på skicka-knappen till "Uppdatera"
-      const submitButton = document.querySelector(
+      document.querySelector(
         '#contributionForm button[type="submit"]'
-      );
-      submitButton.textContent = 'Uppdatera';
+      ).textContent = 'Uppdatera';
 
       // Ändra formulärets beteende för att hantera uppdatering istället för skapande
-      form.onsubmit = (event) => submitEditForm(event, destinationId);
+      form.onsubmit = function (event) {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const url = `http://localhost:3000/destinations/${destinationId}`;
+        // submitDestinationData(url, 'PUT', formData, true);
+      };
 
       // Visa modalen
       document.getElementById('contributionModal').classList.remove('hidden');
     })
     .catch((error) => console.error('Error:', error));
-  fetchDestinations();
 }
 
 // Modal Dialog Functions
@@ -272,17 +333,11 @@ function openAddModal() {
 
 // stänger modalen när en uppdatering lyckats genom att stänga modalen, visa ett meddelande om att det lyckats, och uppdatera listan med destinationer.
 // Om det finns en nyare version av destinationen, så kommer även informationen om den att uppdateras på sidan.
-function handleSuccess(message, updatedDestination = null) {
+function handleSuccess(message) {
+  console.log('handleSuccess called with message:', message);
   closeModal();
   alert(message);
-
-  if (updatedDestination) {
-    // Uppdatera info-section med den uppdaterade destinationen
-    submitDestinationData(updatedDestination);
-  } else {
-    // Om ingen specifik destination tillhandahålls, hämta och visa alla destinationer
-    fetchDestinations();
-  }
+  fetchDestinations();
 }
 
 // Tar bort en destination efter användarens bekräftelse och hanterar uppdatering eller error.

@@ -44,12 +44,27 @@
         <!-- Selected destination information will be displayed here -->
       </div>
 
-      <!-- Gallery Grid -->
-      <div
-        id="gallery-grid"
-        class="flex-1 px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
-        <!-- User-generated content cards will be inserted here by script.js -->
+      <!-- Gallery and Navigation Container -->
+      <div class="flex-1 flex flex-col px-4">
+        <!-- Gallery Grid -->
+        <div
+          id="gallery-grid"
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow"
+        >
+          <!-- User-generated content cards will be inserted here by script.js -->
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="flex justify-center items-center py-4">
+          <button
+            id="prev-button"
+            class="bg-white text-black p-2 mx-2"
+          ></button>
+          <button
+            id="next-button"
+            class="bg-white text-black p-2 mx-2"
+          ></button>
+        </div>
       </div>
     </div>
 
