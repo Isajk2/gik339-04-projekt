@@ -26,7 +26,7 @@ function modalContentClick(event) {
   event.stopPropagation();
 }
 
-// Form Submission and Page Initialization
+// Formulärinskickning och Sidinitialisering
 document.addEventListener('DOMContentLoaded', function () {
   setupInitialView();
   setupFormSubmission();
@@ -324,7 +324,7 @@ function openEditModal(destinationId) {
     .catch((error) => console.error('Error:', error));
 }
 
-// Modal Dialog Functions
+// Funktioner för Modaldialog
 function openAddModal() {
   document.getElementById('destinationId').value = ''; // Rensa destinationId för ny tillägg
   openModal(); // Anropa openModal för att öppna modalen

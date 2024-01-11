@@ -18,7 +18,7 @@
     style="background-image: url('../images/default_background.png')"
   >
     <main class="flex-1 overflow-hidden"></main>
-    <!-- Navbar -->
+    <!-- Navigationsfält -->
     <nav class="text-white p-4">
       <nav class="text-white p-4">
         <div class="container mx-auto flex justify-between items-center">
@@ -35,26 +35,26 @@
       </nav>
     </nav>
 
-    <!-- Main Content -->
+    <!-- Huvudinnehåll -->
     <div
       class="container mx-auto flex flex-col lg:flex-row py-10 h-screen overflow-hidden"
     >
-      <!-- Information Section -->
+      <!-- Informationsavsnitt -->
       <div id="info-section" class="flex-1 px-4">
-        <!-- Selected destination information will be displayed here -->
+        <!-- Informationen om den valda destinationen kommer att visas här -->
       </div>
 
-      <!-- Gallery and Navigation Container -->
+      <!-- Galleri- och navigeringsbehållare -->
       <div class="flex-1 flex flex-col px-4">
         <!-- Gallery Grid -->
         <div
           id="gallery-grid"
           class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 flex-grow"
         >
-          <!-- User-generated content cards will be inserted here by script.js -->
+          <!-- Användargenererade innehållskort kommer att infogas här -->
         </div>
 
-        <!-- Navigation Buttons -->
+        <!-- Navigeringsknappar -->
         <div class="flex justify-center items-center py-4">
           <button
             id="prev-button"
@@ -68,9 +68,9 @@
       </div>
     </div>
 
-    <!-- Bidra Button and Edit Button Container -->
+    <!-- Bidra-knapp och redigera-knappbehållare -->
     <div class="container mx-auto px-4 py-10 flex justify-between items-center">
-      <!-- Bidra Button -->
+      <!-- Bidra-knapp -->
       <button
         id="contribute-button"
         class="bg-green-800 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
@@ -78,7 +78,7 @@
         Bidra med en sevärdhet
       </button>
 
-      <!-- Redigera Button -->
+      <!-- Redigera-knapp -->
       <button
         id="edit-button"
         class="hidden bg-orange-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
@@ -93,10 +93,11 @@
       id="content-grid"
       class="container mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
     >
-      <!-- Additional content if needed -->
+      <!-- Ytterligare innehåll om det behövs -->
     </div>
 
-    <!-- Tailwind Modal -->
+    <!-- Tailwind Modal (modal) -->
+
     <div
       id="contributionModal"
       class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 overflow-y-auto h-full w-full"
@@ -110,7 +111,7 @@
           <div class="flex justify-between items-center pb-3">
             <p class="text-2xl font-bold">Bidra med en sevärdhet</p>
             <div class="cursor-pointer z-50" onclick="closeModal()">
-              <!-- SVG for close icon -->
+              <!-- SVG för stängningsikon -->
               <svg
                 class="fill-current text-black"
                 xmlns="http://www.w3.org/2000/svg"
@@ -125,7 +126,6 @@
             </div>
           </div>
           <div class="modal-body">
-            <!-- The enctype attribute is important for forms that have a file upload control -->
             <form id="contributionForm" enctype="multipart/form-data">
               <input
                 type="hidden"
@@ -226,7 +226,7 @@
       <p>© 2023 SightSharing. Alla rättigheter förbehållna.</p>
     </footer>
 
-    <!-- Script for Modal, Form Submission, and Fetching Destinations -->
+    <!-- Skript för modal, formulärinskick och hämtning av destinationer -->
     <script src="script.js"></script>
   </body>
 </html>
